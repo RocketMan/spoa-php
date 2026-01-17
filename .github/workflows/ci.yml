@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  php:
+    name: PHP Static Analysis & Tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        php-version: [8.2]
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Set up PHP
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v4
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mbstring, sockets
+          coverage: xdebug
+
+      # 3. Install Composer dependencies
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      # 4. Run PHPStan static analysis
+      - name: PHPStan Analysis
+        run: vendor/bin/phpstan analyse src tests
+
+      # 5. Run PHPUnit tests
+      - name: PHPUnit
+        run: vendor/bin/phpunit --colors=always
+

@@ -1,0 +1,63 @@
+<?php
+/**
+ * HAProxy Stream Processing Offload Agent (SPOA) framework for PHP
+ *
+ * @author Jim Mason <jmason@ibinx.com>
+ * @copyright Copyright (C) 2026 Jim Mason <jmason@ibinx.com>
+ * @link https://www.ibinx.com/
+ * @license MIT
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to
+ * deal in the Software without restriction, including without limitation the
+ * rights to use, copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ * DEALINGS IN THE SOFTWARE.
+ */
+
+namespace SPOA\Transport;
+
+use SPOA\Protocol\Frame;
+
+class Reader {
+    private string $buffer = '';
+
+    /**
+     * Push new data into the decoder and yield complete frames
+     *
+     * @param string $data
+     * @return Frame[]
+     */
+    public function push(string $data): array {
+        $this->buffer .= $data;
+        $frames = [];
+
+        while (strlen($this->buffer) >= 10) {
+            // read payload length
+            $lengthArray = unpack('Nlength', substr($this->buffer, 0, 4));
+            $payloadLength = $lengthArray['length'] ?? 0;
+
+            if (strlen($this->buffer) < 4 + $payloadLength)
+                break; // wait for more data
+
+            $frameData = substr($this->buffer, 4, $payloadLength);
+            $frames[] = Frame::decode($frameData);
+
+            $this->buffer = substr($this->buffer, 4 + $payloadLength);
+        }
+
+        return $frames;
+    }
+}
+

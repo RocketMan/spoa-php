@@ -1,0 +1,26 @@
+{
+    "name": "rocketman/spoa-php",
+    "description": "Stream Processing Offload Agent (SPOA) framework for PHP",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jim Mason",
+            "email": "jmason@ibinx.com"
+        }
+    ],
+    "type": "library",
+    "autoload": {
+        "psr-4": {
+            "SPOA\\": "src/"
+        }
+    },
+    "require": {
+        "php": ">=8.2",
+        "react/socket": "^1.16"
+    },
+    "require-dev": {
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^12.5",
+        "react/event-loop": "^1.6"
+    }
+}
