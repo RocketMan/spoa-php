@@ -37,10 +37,6 @@ class Frame {
         public string $payload
     ) {}
 
-    public function payload(): string {
-        return $this->payload;
-    }
-
     /**
      * Encode the frame to a binary string suitable for sending over a SPOA connection.
      */

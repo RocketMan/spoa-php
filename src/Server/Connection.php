@@ -270,7 +270,7 @@ class Connection {
             $this->frame = null;
         }
 
-        $messages = self::decodeMessages($frame->payload());
+        $messages = self::decodeMessages($frame->payload);
         $payload = '';
         foreach ($messages as $message) {
             $this->log("SPOP NOTIFY message={$message['name']}");
