@@ -1,7 +1,7 @@
 # spoa-php
 
 A lightweight PHP framework for building HAProxy **Stream Processing
-Offload Agent (SPOA)** services using ReactPHP.
+Offload Agent (SPOA)** services
 
 This library implements the SPOE protocol and allows PHP applications
 to receive messages from HAProxy, process request or session metadata,
@@ -19,7 +19,7 @@ decisions.
 * Native SPOE protocol implementation
 * Event-driven, non-blocking I/O using ReactPHP
 * Simple handler-based programming model
-* Support for all HAProxy variable scopes (proc, sess, txn, req, res)
+* Support for all HAProxy variable scopes
 * Minimal runtime dependencies
 * PHPUnit and PHPStan coverage
 
@@ -117,8 +117,8 @@ Variable names may be prefixed with a scope:
 
 If no prefix is provided, the variable defaults to **process scope**.
 
-Returning `null` as a value will **unset** the variable.
-To explicitly set a variable to a null value, use `Arg::null()`.
+Specifying `null` as a value will **unset** the variable.  To set a
+variable to null, use `Arg::null()`.
 
 ---
 
@@ -228,7 +228,7 @@ vendor/bin/phpunit
 Static analysis:
 
 ```bash
-vendor/bin/phpstan analyse
+vendor/bin/phpstan analyse src tests
 ```
 
 Both are executed automatically via GitHub Actions on push.
