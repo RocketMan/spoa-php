@@ -28,6 +28,8 @@
 
 namespace SPOA\Server;
 
+use React\Promise;
+use React\Promise\PromiseInterface;
 use React\Socket\ConnectionInterface;
 
 use SPOA\Protocol\Action;
@@ -271,7 +273,7 @@ class Connection {
         }
 
         $messages = self::decodeMessages($frame->payload);
-        $payload = '';
+        $promises = [];
         foreach ($messages as $message) {
             $this->log("SPOP NOTIFY message={$message['name']}");
 
@@ -283,59 +285,70 @@ class Connection {
             $handler = $this->handlers[$message['name']];
             $actions = $handler($message['args']);
             if ($actions)
-                $payload .= $this->encodeActions($actions);
+                $promises[] = $actions instanceof PromiseInterface ? $actions : Promise\resolve($actions);
         }
 
-        // check for frame overflow
-        if (strlen($payload) > $this->serverMaxFrameSize - 11) {
-            if (!$this->serverSupports('fragmentation')) {
-                $this->log('SPOE frame too big', E_ERROR);
+        Promise\all($promises)->then(
+            function(array $results) use ($frame) {
+                $payload = '';
+                foreach($results as $actions)
+                    $payload .= $this->encodeActions($actions);
 
-                // stash error for subsequent DISCONNECT
-                $this->errorCode = 3;
-                $this->errorMessage = 'frame is too big';
+                // check for frame overflow
+                if (strlen($payload) > $this->serverMaxFrameSize - 11) {
+                    if (!$this->serverSupports('fragmentation')) {
+                        $this->log('SPOE frame too big', E_ERROR);
+
+                        // stash error for subsequent DISCONNECT
+                        $this->errorCode = 3;
+                        $this->errorMessage = 'frame is too big';
             
+                        $this->writer->send(
+                            new Frame(
+                                FrameType::ACK,
+                                FrameType::FLAG_ABRT | FrameType::FLAG_FIN,
+                                $frame->streamId,
+                                $frame->frameId,
+                                ''
+                            )
+                        );
+
+                        return;
+                    }
+
+                    $chunks = str_split($payload, $this->conn->serverMaxFrameSize - 11);
+                    $first = reset($chunks);
+                    $last = end($chunks);
+                    foreach ($chunks as $chunk) {
+                        // Only first frame has type ACK; reset are all UNSET
+                        // Only the last frame has the FIN flag
+                        $f = new Frame(
+                            $chunk === $first ? FrameType::ACK : FrameType::UNSET,
+                            $chunk === $last ? FrameType::FLAG_FIN : 0,
+                            $frame->streamId,
+                            $frame->frameId,
+                            $chunk
+                        );
+
+                        $this->writer->send($f);
+                    }
+
+                    return;
+                }
+
                 $this->writer->send(
                     new Frame(
                         FrameType::ACK,
-                        FrameType::FLAG_ABRT | FrameType::FLAG_FIN,
+                        FrameType::FLAG_FIN,
                         $frame->streamId,
                         $frame->frameId,
-                        ''
+                        $payload
                     )
                 );
-
-                return;
+            },
+            function(\Throwable $reject) {
+                $this->log("SPOP NOTIFY handler exception: " . $reject->getMessage(), E_ERROR);
             }
-
-            $chunks = str_split($payload, $this->conn->serverMaxFrameSize - 11);
-            $first = reset($chunks);
-            $last = end($chunks);
-            foreach ($chunks as $chunk) {
-                // Only first frame has type ACK; reset are all type UNSET
-                // Only the last frame has the FIN flag
-                $f = new Frame(
-                    $chunk === $first ? FrameType::ACK : FrameType::UNSET,
-                    $chunk === $last ? FrameType::FLAG_FIN : 0,
-                    $frame->streamId,
-                    $frame->frameId,
-                    $chunk
-                );
-
-                $this->writer->send($f);
-            }
-
-            return;
-        }
-
-        $this->writer->send(
-            new Frame(
-                FrameType::ACK,
-                FrameType::FLAG_FIN,
-                $frame->streamId,
-                $frame->frameId,
-                $payload
-            )
         );
     }
 

@@ -103,6 +103,10 @@ return [
 ];
 ```
 
+Alternatively, a handler may return a `React\Promise\PromiseInterface`
+that resolves to the associative array.  This allows handlers to perform
+asynchronous operations before returning data to HAProxy.
+
 #### Variable scopes
 
 Variable names may be prefixed with a scope:
