@@ -85,8 +85,23 @@ $conn->on('get-ip-reputation', function (array $args) {
 });
 ```
 
-* The message name **must match** the `spoe-message` name in HAProxy.
-* `$args` is an associative array of `SPOA\Protocol\Arg` objects.
+* **Message Name**: The event name (e.g., `get-ip-reputation`) **must
+    match** the `spoe-message` identifier in your HAProxy
+    configuration.
+
+* **Arguments (**`$args`**)**: An associative array of
+    `SPOA\Protocol\Arg` objects.
+
+    * **Named Arguments**: Accessed via their name defined in HAProxy
+        (e.g., `$args['client_ip']`).
+
+    * **Nameless Arguments**: Accessed via the key `arg(n)`, where `n`
+        is the zero-based position (e.g., `$args['arg(0)']`).
+
+    * **Ordinal Access**: As the array maintains the order defined in
+        HAProxy, you can retreive any argument by its position
+        regardless of its name (e.g., `$fourthArg =
+        $args[array_keys($args)[3]]`).
 
 ---
 

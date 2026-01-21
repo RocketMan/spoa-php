@@ -134,10 +134,12 @@ class Decoder {
 
         $len = strlen($this->data);
 
+        $index = 0;
         while ($this->offset < $len) {
             $key = $this->decodeString();
-            $args[$key] = $this->decodeValue();
+            $args[strlen($key) ? $key : "arg($index)"] = $this->decodeValue();
             if (--$count == 0) break;
+            $index++;
         }
 
         return $args;
