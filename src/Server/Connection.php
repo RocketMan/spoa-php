@@ -274,18 +274,24 @@ class Connection {
 
         $messages = self::decodeMessages($frame->payload);
         $promises = [];
-        foreach ($messages as $message) {
-            $this->log("SPOP NOTIFY message={$message['name']}");
+        try {
+            foreach ($messages as $message) {
+                $this->log("SPOP NOTIFY message={$message['name']}");
 
-            if (!key_exists($message['name'], $this->handlers)) {
-                $this->log("SPOP NOTIFY unknown message={$message['name']}", E_ERROR);
-                continue;
+                if (!key_exists($message['name'], $this->handlers)) {
+                    $this->log("SPOP NOTIFY unknown message={$message['name']}", E_ERROR);
+                    continue;
+                }
+
+                $handler = $this->handlers[$message['name']];
+                $actions = $handler($message['args']);
+                if ($actions)
+                    $promises[] = $actions instanceof PromiseInterface
+                            ? $actions
+                            : Promise\resolve($actions);
             }
-
-            $handler = $this->handlers[$message['name']];
-            $actions = $handler($message['args']);
-            if ($actions)
-                $promises[] = $actions instanceof PromiseInterface ? $actions : Promise\resolve($actions);
+        } catch(\Throwable $t) {
+            $promises = [ Promise\reject($t) ];
         }
 
         Promise\all($promises)->then(
@@ -297,7 +303,7 @@ class Connection {
                 // check for frame overflow
                 if (strlen($payload) > $this->serverMaxFrameSize - 11) {
                     if (!$this->serverSupports('fragmentation')) {
-                        $this->log('SPOE frame too big', E_ERROR);
+                        $this->log('SPOP frame too big', E_ERROR);
 
                         // stash error for subsequent DISCONNECT
                         $this->errorCode = 3;
@@ -346,8 +352,23 @@ class Connection {
                     )
                 );
             },
-            function(\Throwable $reject) {
-                $this->log("SPOP NOTIFY handler exception: " . $reject->getMessage(), E_ERROR);
+            function(\Throwable $reject) use ($frame) {
+                $message = $reject->getMessage();
+                $this->log("SPOP NOTIFY handler exception: $message", E_ERROR);
+
+                // stash error for subsequent DISCONNECT
+                $this->errorCode = 99; // unknown error
+                $this->errorMessage = "agent handler exception: $message";
+
+                $this->writer->send(
+                    new Frame(
+                        FrameType::ACK,
+                        FrameType::FLAG_ABRT | FrameType::FLAG_FIN,
+                        $frame->streamId,
+                        $frame->frameId,
+                        ''
+                    )
+                );
             }
         );
     }
