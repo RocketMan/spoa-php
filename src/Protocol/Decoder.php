@@ -67,8 +67,11 @@ class Decoder {
     }
 
     private function decodeInt32(): int {
+        // It seems signed 32 bit values are generally wire-encoded with
+        // sign extension to 64 bits.  However, if we encounter a 32-bit
+        // value with the sign bit set, we'll accept that as well.
         $val = $this->decodeVarint();
-        if ($val & 0x80000000)
+        if ($val > 0 && $val & 0x80000000)
             $val = -((~$val + 1) & 0x7fffffff);
         return $val;
     }
