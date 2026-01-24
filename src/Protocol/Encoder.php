@@ -42,6 +42,7 @@ class Encoder {
 
         // First byte (high nibble is f)
         $out = chr(0xf0 | $value & 0x0f);
+        $value -= 0xf0;
         $value >>= 4;
 
         // Correctly encode signed (negative) value
@@ -51,6 +52,7 @@ class Encoder {
         while ($value > 0x7f) {
             // Take 7 bits, set MSB to 1
             $out .= chr(0x80 | $value & 0x7f);
+            $value -= 0x80;
             $value >>= 7;
         }
 

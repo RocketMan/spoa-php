@@ -47,12 +47,12 @@ class Decoder {
         if ($byte < 0xf0)
             return $byte;
 
-        $result = $byte & 0x0f;
+        $result = $byte;
         $shift = 4;
 
         while (true) {
             $byte = ord($this->data[$this->offset++]);
-            $result |= ($byte & 0x7f) << $shift;
+            $result += $byte << $shift;
 
             // If MSB is 0, we are done
             if (!($byte & 0x80))
