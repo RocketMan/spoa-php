@@ -83,7 +83,7 @@ class Encoder {
             ArgType::T_BOOL    => chr(ArgType::T_BOOL) | chr($arg->value ? 0x10 : 0),
             ArgType::T_UINT32  => chr(ArgType::T_UINT32) . $this->encodeVarint($arg->value & 0xffffffff),
             // It seems signed 32 bit values are expected to be wire-encoded
-            // with sign-extension to 64 bits, so we deliberaly avoid masking.
+            // with sign-extension to 64 bits, so we deliberately avoid masking.
             ArgType::T_INT32   => chr(ArgType::T_INT32) . $this->encodeVarint($arg->value),
             ArgType::T_UINT64  => chr(ArgType::T_UINT64) . $this->encodeVarint($arg->value),
             ArgType::T_INT64   => chr(ArgType::T_INT64) . $this->encodeVarint($arg->value),
