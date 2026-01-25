@@ -8,9 +8,9 @@ to receive messages from HAProxy, process request or session metadata,
 and return variables back to HAProxy for use in ACLs and routing
 decisions.
 
-![Latest Version](https://img.shields.io/packagist/v/rocketman/spoa-php)
-![CI](https://github.com/rocketman/spoa-php/actions/workflows/ci.yml/badge.svg)
-![License](https://img.shields.io/badge/license-MIT-green)
+[![Latest Version](https://img.shields.io/packagist/v/rocketman/spoa-php)](https://packagist.org/packages/rocketman/spoa-php)
+[![CI](https://github.com/rocketman/spoa-php/actions/workflows/ci.yml/badge.svg)](https://github.com/rocketman/spoa-php/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-green)](https://github.com/rocketman/spoa-php?tab=readme-ov-file#MIT-1-ov-file)
 
 ---
 
