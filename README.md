@@ -17,7 +17,7 @@ decisions.
 ## Features
 
 * Native SPOE protocol implementation
-* Event-driven, non-blocking I/O using ReactPHP
+* Event-driven, asynchronous I/O using ReactPHP
 * Simple handler-based programming model
 * Support for all HAProxy variable scopes
 * Minimal runtime dependencies
@@ -62,7 +62,8 @@ The central abstraction in this framework is `SPOA\Server\Connection`.
 
 Each incoming SPOE connection from HAProxy is represented by a
 `Connection` instance.  Applications register message handlers on the
-connection and return variables to HAProxy in response.
+connection and return variables (or Promises that resolve to variables)
+to HAProxy in response.
 
 The framework handles:
 
@@ -80,7 +81,7 @@ Your application code only needs to define handlers.
 Handlers are registered by message name:
 
 ```php
-$conn->on('get-ip-reputation', function (array $args) {
+$conn->on('get-ip-reputation', function (array $args): PromiseInterface|array {
     // ...
 });
 ```
@@ -90,7 +91,7 @@ $conn->on('get-ip-reputation', function (array $args) {
     configuration.
 
 * **Arguments (**`$args`**)**: An associative array of
-    `SPOA\Protocol\Arg` objects.
+    `SPOA\Protocol\Arg` object instances.
 
     * **Named Arguments**: Accessed via their name defined in HAProxy
         (e.g., `$args['client_ip']`).
@@ -152,6 +153,7 @@ programming model.
 ```php
 <?php
 use React\EventLoop\Loop;
+use React\Promise\PromiseInterface;
 use React\Socket\Server;
 
 use SPOA\Protocol\Arg;
@@ -164,7 +166,7 @@ $server = new Server('127.0.0.1:12345', $loop);
 $server->on('connection', function ($conn) {
     $spoa = new Connection($conn);
 
-    $spoa->on('get-ip-reputation', function (array $args): array {
+    $spoa->on('get-ip-reputation', function (array $args): PromiseInterface|array {
         $srcIp = $args['ip']?->value;
 
         // check IP address and set reputation
@@ -194,21 +196,19 @@ The application runs inside a standard ReactPHP event loop.
 ### SPOE configuration (`spoe-test.cfg`)
 
 ```cfg
-[spoe-test]
-
 spoe-agent iprep-agent
     messages get-ip-reputation
     option var-prefix iprep
 
-    timeout hello 2s
-    timeout idle 2m
-    timeout processing 10ms
+    timeout hello 200ms
+    timeout idle 10m
+    timeout processing 500ms
 
     use-backend iprep-server
 
 spoe-message get-ip-reputation
     args ip=src
-    event on-client-session
+    event on-frontend-http-request
 ```
 
 ---
@@ -217,8 +217,8 @@ spoe-message get-ip-reputation
 
 ```cfg
 frontend http
-    filter spoe engine spoe-test config /etc/haproxy/spoe-test.cfg
-    http-request set-header X-Test 1 if { var(sess.iprep.score) -m int gt 20 }
+    filter spoe config /etc/haproxy/spoe-test.cfg
+    http-request set-header X-Pass 1 if { var(sess.iprep.score) -m int gt 20 }
 
 backend iprep-server
     mode tcp
