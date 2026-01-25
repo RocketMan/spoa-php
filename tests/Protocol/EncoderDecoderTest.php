@@ -7,6 +7,42 @@ use SPOA\Protocol\Encoder;
 use SPOA\Protocol\Decoder;
 
 final class EncoderDecoderTest extends TestCase {
+    // expected canonical varint encodings, per SPOE section 3.1
+    const CANONICAL = [
+        239 => "\xef",
+        240 => "\xf0\x00",
+        256 => "\xf0\x01",
+        2287 => "\xff\x7f",
+        2289 => "\xf1\x80\x00",
+        264431 => "\xff\xff\x7f",
+        264432 => "\xf0\x80\x80\x00",
+        33818863 => "\xff\xff\xff\x7f",
+        33818867 => "\xf3\x80\x80\x80\x00",
+    ];
+
+    public function testCanonicalEncoding(): void {
+        $encoder = new Encoder();
+        $encoded = array_map(fn($i) => $encoder->encodeVarint($i), array_keys(self::CANONICAL));
+        $this->assertEquals($encoded, array_values(self::CANONICAL));
+    }
+
+    public function testCanonicalDecoding(): void {
+        $decoded = array_map(fn($enc) => (new Decoder($enc))->decodeVarint(), array_values(self::CANONICAL));
+        $this->assertEquals($decoded, array_keys(self::CANONICAL));
+    }
+
+    public function testEncodeDecodeString(): void {
+        $test = 'hello world';
+        $encoded = (new Encoder())->encodeString($test);
+
+        $decoder = new Decoder($encoded);
+        $len = $decoder->decodeVarint();
+        $this->assertSame($len, strlen($test));
+
+        $data = $decoder->rest();
+        $this->assertSame($data, $test);
+    }
+
     public function testEncodeDecodeSimpleArgs(): void {
         $args = [
             'nullValue' => Arg::null(),
@@ -42,4 +78,3 @@ final class EncoderDecoderTest extends TestCase {
         $this->assertSame([], $decoded);
     }
 }
-
