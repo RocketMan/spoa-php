@@ -167,7 +167,7 @@ $server->on('connection', function ($conn) {
     $spoa = new Connection($conn);
 
     $spoa->on('get-ip-reputation', function (array $args): PromiseInterface|array {
-        $srcIp = $args['ip']?->value;
+        $srcIp = $args['client_ip']?->value;
 
         // check IP address and set reputation
         $rep = 42;
@@ -201,13 +201,13 @@ spoe-agent iprep-agent
     option var-prefix iprep
 
     timeout hello 200ms
-    timeout idle 10m
+    timeout idle 3m
     timeout processing 500ms
 
     use-backend iprep-server
 
 spoe-message get-ip-reputation
-    args ip=src
+    args client_ip=src
     event on-frontend-http-request
 ```
 
