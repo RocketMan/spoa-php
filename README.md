@@ -236,6 +236,22 @@ This configuration:
 
 ---
 
+## Real-world example
+
+A complete, working SPOA agent built using this library can be found in the
+[Zookeeper Online](https://github.com/RocketMan/zookeeper) music database
+and charting application.
+
+In particular, see:
+
+- [SpoaTurnstile.php](https://github.com/RocketMan/zookeeper/blob/master/custom/SpoaTurnstile.php)
+
+This example shows how the library can be embedded into a larger application,
+including integration with an existing ReactPHP event loop and non-trivial
+decision logic.
+
+---
+
 ## Testing
 
 Run the test suite:
