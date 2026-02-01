@@ -211,7 +211,7 @@ class Connection {
         $responseArgs = [
             'version' => Arg::str('2.0'),
             'max-frame-size' => Arg::uint32($this->serverMaxFrameSize),
-            'capabilities' => Arg::str('fragmentation'),
+            'capabilities' => Arg::str(Capability::FRAGMENTATION),
         ];
 
         $resp = new Frame(
@@ -302,7 +302,7 @@ class Connection {
 
                 // check for frame overflow
                 if (strlen($payload) > $this->serverMaxFrameSize - 11) {
-                    if (!$this->serverSupports('fragmentation')) {
+                    if (!$this->serverSupports(Capability::FRAGMENTATION)) {
                         $this->log('SPOP frame too big', E_ERROR);
 
                         // stash error for subsequent DISCONNECT
