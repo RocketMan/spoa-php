@@ -237,31 +237,24 @@ class Connection {
         if ($this->frame && (
                 $this->frame->streamId != $frame->streamId ||
                 $this->frame->frameId != $frame->frameId ) ) {
-            // interleaved frames are not permitted
-            $this->log("SPOP invalid interleaved frame", E_ERROR);
+            // interlaced frames are not permitted
+            $this->log("SPOP invalid interlaced frames: received stream-id={$frame->streamId}, frame-id={$frame->frameId}), expecting stream-id={$this->frame->streamId}, frame-id={$this->frame->frameId}", E_ERROR);
 
-            // stash error for subsequent DISCONNECT
+            $this->frame = null;
+
+            // stash error for DISCONNECT
             $this->errorCode = 11;
             $this->errorMessage = 'invalid interlaced frames';
 
-            $this->writer->send(
-                new Frame(
-                    FrameType::ACK,
-                    FrameType::FLAG_ABRT | FrameType::FLAG_FIN,
-                    $frame->streamId,
-                    $frame->frameId,
-                    ''
-                )
-            );
-
-            $this->frame = null;
+            // this is a protocol error; disconnect immediately
+            $this->doDisconnect();
 
             return;
         }
 
         if (!($frame->flags & FrameType::FLAG_FIN)) {
             // receiving fragmented payload
-            $this->log("SPOP NOTIFY fragmented frame");
+            $this->log("SPOP NOTIFY fragmented frame stream-id={$frame->streamId}");
             if (!$this->frame)
                 $this->frame = $frame;
             else
@@ -281,10 +274,10 @@ class Connection {
         $promises = [];
         try {
             foreach ($messages as $message) {
-                $this->log("SPOP NOTIFY message={$message['name']}");
+                $this->log("SPOP NOTIFY stream-id={$frame->streamId} message={$message['name']}");
 
                 if (!key_exists($message['name'], $this->handlers)) {
-                    $this->log("SPOP NOTIFY unknown message={$message['name']}", E_ERROR);
+                    $this->log("SPOP NOTIFY stream-id={$frame->streamId} unknown message={$message['name']}", E_ERROR);
                     continue;
                 }
 
@@ -308,16 +301,12 @@ class Connection {
                 // check for frame overflow
                 if (strlen($payload) > $this->serverMaxFrameSize - 11) {
                     if (!$this->serverSupports(Capability::FRAGMENTATION)) {
-                        $this->log('SPOP frame too big', E_ERROR);
+                        $this->log("SPOP ACK stream-id={$frame->streamId} frame too big", E_ERROR);
 
-                        // stash error for subsequent DISCONNECT
-                        $this->errorCode = 3;
-                        $this->errorMessage = 'frame is too big';
-            
                         $this->writer->send(
                             new Frame(
                                 FrameType::ACK,
-                                FrameType::FLAG_ABRT | FrameType::FLAG_FIN,
+                                FrameType::FLAG_FIN,
                                 $frame->streamId,
                                 $frame->frameId,
                                 ''
@@ -341,12 +330,17 @@ class Connection {
                             $chunk
                         );
 
+                        $this->log("SPOP " .
+                                ($first ? "ACK" : "UNSET") .
+                                " stream-id={$frame->streamId}" .
+                                ($last ? " FIN" : ""));
                         $this->writer->send($f);
                     }
 
                     return;
                 }
 
+                $this->log("SPOP ACK stream-id={$frame->streamId}");
                 $this->writer->send(
                     new Frame(
                         FrameType::ACK,
@@ -361,14 +355,10 @@ class Connection {
                 $message = $reject->getMessage();
                 $this->log("SPOP NOTIFY handler exception: $message", E_ERROR);
 
-                // stash error for subsequent DISCONNECT
-                $this->errorCode = 99; // unknown error
-                $this->errorMessage = "agent handler exception: $message";
-
                 $this->writer->send(
                     new Frame(
                         FrameType::ACK,
-                        FrameType::FLAG_ABRT | FrameType::FLAG_FIN,
+                        FrameType::FLAG_FIN,
                         $frame->streamId,
                         $frame->frameId,
                         ''
