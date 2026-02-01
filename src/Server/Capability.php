@@ -30,4 +30,5 @@ namespace SPOA\Server;
 
 final class Capability {
     public const FRAGMENTATION = 'fragmentation';
+    public const PIPELINING = 'pipelining';
 }

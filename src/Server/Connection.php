@@ -211,7 +211,12 @@ class Connection {
         $responseArgs = [
             'version' => Arg::str('2.0'),
             'max-frame-size' => Arg::uint32($this->serverMaxFrameSize),
-            'capabilities' => Arg::str(Capability::FRAGMENTATION),
+            'capabilities' => Arg::str(
+                implode(',', [
+                    Capability::FRAGMENTATION,
+                    Capability::PIPELINING,
+                ])
+            ),
         ];
 
         $resp = new Frame(
