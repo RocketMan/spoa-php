@@ -64,6 +64,7 @@ class Connection {
         $this->writer  = new Writer($conn);
 
         $conn->on('data', fn($data) => $this->onData($data));
+        $conn->on('error', fn($e) => $this->onError($e));
         $conn->on('close', fn() => $this->onClose());
     }
 
@@ -394,6 +395,11 @@ class Connection {
             $args['message']->value);
 
         $this->doDisconnect();
+    }
+
+    private function onError(\Exception $e) {
+        $message = $e->getMessage();
+        $this->log("SPOP FATAL connection error: $message", E_ERROR);
     }
 
     private function onClose(): void {
