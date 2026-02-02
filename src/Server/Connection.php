@@ -316,7 +316,7 @@ class Connection {
                         return;
                     }
 
-                    $chunks = str_split($payload, $this->conn->serverMaxFrameSize - 11);
+                    $chunks = str_split($payload, $this->serverMaxFrameSize - 11);
                     $first = reset($chunks);
                     $last = end($chunks);
                     foreach ($chunks as $chunk) {
