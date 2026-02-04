@@ -58,6 +58,7 @@ class Connection {
     public function __construct(
         private ConnectionInterface $conn,
         private bool $debug = false,
+        private array $clientCapabilities = [],
     ) {
         $this->encoder = new Encoder();
         $this->reader = new Reader();
@@ -209,14 +210,13 @@ class Connection {
             $this->serverMaxFrameSize . ", capabilities=" .
             implode(',', $this->serverCapabilities));
 
+        $this->clientCapabilities[] = Capability::FRAGMENTATION;
+
         $responseArgs = [
             'version' => Arg::str('2.0'),
             'max-frame-size' => Arg::uint32($this->serverMaxFrameSize),
             'capabilities' => Arg::str(
-                implode(',', [
-                    Capability::FRAGMENTATION,
-                    Capability::PIPELINING,
-                ])
+                implode(',', array_unique($this->clientCapabilities))
             ),
         ];
 
