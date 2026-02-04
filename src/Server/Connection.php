@@ -370,6 +370,9 @@ class Connection {
     }
 
     private function doDisconnect(): void {
+        // suppress spurious error reporting after disconnect
+        $this->conn->removeAllListeners('error');
+
         $args = [
             'status-code' => Arg::uint32($this->errorCode),
             'message' => Arg::str($this->errorMessage)
