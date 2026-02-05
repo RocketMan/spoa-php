@@ -43,10 +43,5 @@ class Action {
     public static function unsetVar(int $scope, string $name): self {
         return new self(ActionType::T_UNSET_VAR, $scope, $name);
     }
-
-    public function __toString(): string {
-        return "{$this->scope}.{$this->name}=" .
-            ($this->type == ActionType::T_SET_VAR ? $this->value : "(unset)");
-    }
 }
 
