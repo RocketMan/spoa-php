@@ -73,4 +73,20 @@ final class Arg {
     public static function bin(string $v): self {
         return new self(ArgType::T_BIN, $v);
     }
+
+    public function __toString(): string {
+        switch($this->type) {
+        case ArgType::T_NULL:
+            $value = "null";
+            break;
+        case ArgType::T_BOOL:
+            $value = $this->value ? "true" : "false";
+            break;
+        default:
+            $value = (string)$this->value;
+            break;
+        }
+
+        return $value;
+    }
 }

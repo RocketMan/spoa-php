@@ -26,27 +26,40 @@
  * DEALINGS IN THE SOFTWARE.
  */
 
-namespace SPOA\Protocol;
+namespace SPOA\Server;
 
-class Action {
-    public function __construct(
-        public int $type,
-        public int $scope,
-        public string $name,
-        public ?Arg $value = null
-    ) {}
+trait LoggerTrait {
+    private bool $debug;
 
-    public static function setVar(int $scope, string $name, Arg $value): self {
-        return new self(ActionType::T_SET_VAR, $scope, $name, $value);
+    protected function log(string $message, int $dir = 0, array $args = [], int $level = E_NOTICE): void {
+        if ($level != E_NOTICE || $this->debug) {
+            $text = "SPOP ";
+
+            switch ($dir) {
+            case -1:
+                $text .= "<-- ";
+                break;
+            case 0:
+                $text .= "    ";
+                break;
+            case 1:
+                $text .= "--> ";
+                break;
+            }
+
+            $text .= "$message ";
+
+            $text .= implode(' ',
+                    array_map(fn($key, $value) => "$key=$value",
+                        array_keys($args),
+                        array_values($args)
+                    ));
+
+            error_log($text);
+        }
     }
 
-    public static function unsetVar(int $scope, string $name): self {
-        return new self(ActionType::T_UNSET_VAR, $scope, $name);
-    }
-
-    public function __toString(): string {
-        return "{$this->scope}.{$this->name}=" .
-            ($this->type == ActionType::T_SET_VAR ? $this->value : "(unset)");
+    protected function logMessage(string $message, int $level = E_NOTICE): void {
+        $this->log($message, 0, [], $level);
     }
 }
-

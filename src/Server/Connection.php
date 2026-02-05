@@ -55,6 +55,8 @@ class Connection {
     private array $handlers = [];
     private ?Frame $frame = null;
 
+    use LoggerTrait;
+
     public function __construct(
         private ConnectionInterface $conn,
         private bool $debug = false,
@@ -77,11 +79,6 @@ class Connection {
         return in_array($name, $this->serverCapabilities);
     }
 
-    private function log(string $message, int $level = E_NOTICE): void {
-        if ($level != E_NOTICE || $this->debug)
-            error_log($message);
-    }
-
     private function onData(string $data): void {
         foreach ($this->reader->push($data) as $frame) {
             try {
@@ -89,7 +86,7 @@ class Connection {
             } catch(\Throwable $e) {
                 $message = $e->getMessage();
 
-                $this->log("SPOP FATAL $message", E_ERROR);
+                $this->logMessage("FATAL $message", E_ERROR);
 
                 $this->errorCode = 99; // unknown error
                 $this->errorMessage = $message;
@@ -156,12 +153,12 @@ class Connection {
             }
 
             if ($name === null) {
-                $this->log("SPOP invalid ACTION name", E_ERROR);
+                $this->logMessage("invalid ACTION name", E_ERROR);
                 continue;
             }
 
             if ($value && !($value instanceof Arg)) {
-                $this->log("SPOP invalid ACTION value", E_ERROR);
+                $this->logMessage("invalid ACTION value", E_ERROR);
                 continue;
             }
 
@@ -205,10 +202,7 @@ class Connection {
         if (key_exists('capabilities', $args))
             $this->serverCapabilities = array_map('trim', explode(',', $args['capabilities']->value));
 
-        $this->log("SPOP HELLO versions=" .
-            $args['supported-versions']?->value . ", max-frame-size=" .
-            $this->serverMaxFrameSize . ", capabilities=" .
-            implode(',', $this->serverCapabilities));
+        $this->log("HELLO", 1, $args);
 
         $this->clientCapabilities[] = Capability::FRAGMENTATION;
 
@@ -219,6 +213,8 @@ class Connection {
                 implode(',', array_unique($this->clientCapabilities))
             ),
         ];
+
+        $this->log("AGENT_HELLO", -1, $responseArgs);
 
         $resp = new Frame(
             FrameType::AGENT_HELLO,
@@ -239,7 +235,7 @@ class Connection {
                 $this->frame->streamId != $frame->streamId ||
                 $this->frame->frameId != $frame->frameId ) ) {
             // interlaced frames are not permitted
-            $this->log("SPOP invalid interlaced frames: received stream-id={$frame->streamId}, frame-id={$frame->frameId}), expecting stream-id={$this->frame->streamId}, frame-id={$this->frame->frameId}", E_ERROR);
+            $this->logMessage("invalid interlaced frames: received stream-id={$frame->streamId} frame-id={$frame->frameId}), expecting stream-id={$this->frame->streamId} frame-id={$this->frame->frameId}", E_ERROR);
 
             $this->frame = null;
 
@@ -255,7 +251,7 @@ class Connection {
 
         if (!($frame->flags & FrameType::FLAG_FIN)) {
             // receiving fragmented payload
-            $this->log("SPOP NOTIFY fragmented frame stream-id={$frame->streamId}");
+            $this->log("NOTIFY fragmented frame stream-id={$frame->streamId}", 1);
             if (!$this->frame)
                 $this->frame = $frame;
             else
@@ -275,10 +271,10 @@ class Connection {
         $promises = [];
         try {
             foreach ($messages as $message) {
-                $this->log("SPOP NOTIFY stream-id={$frame->streamId} message={$message['name']}");
+                $this->log("NOTIFY stream-id={$frame->streamId} message={$message['name']}", 1, $message['args']);
 
                 if (!key_exists($message['name'], $this->handlers)) {
-                    $this->log("SPOP NOTIFY stream-id={$frame->streamId} unknown message={$message['name']}", E_ERROR);
+                    $this->log("NOTIFY stream-id={$frame->streamId} unknown message={$message['name']}", 1, $message['args'], E_ERROR);
                     continue;
                 }
 
@@ -302,7 +298,14 @@ class Connection {
                 // check for frame overflow
                 if (strlen($payload) > $this->serverMaxFrameSize - 11) {
                     if (!$this->serverSupports(Capability::FRAGMENTATION)) {
-                        $this->log("SPOP ACK stream-id={$frame->streamId} frame too big", E_ERROR);
+                        $this->log("ACK stream-id={$frame->streamId} frame too big",
+                            -1,
+                            array_reduce(
+                                $results,
+                                fn($carry, $item) => array_merge($carry, $item),
+                                []
+                            ),
+                            E_ERROR);
 
                         $this->writer->send(
                             new Frame(
@@ -331,17 +334,19 @@ class Connection {
                             $chunk
                         );
 
-                        $this->log("SPOP " .
+                        $this->log(
                                 ($first ? "ACK" : "UNSET") .
                                 " stream-id={$frame->streamId}" .
-                                ($last ? " FIN" : ""));
+                                ($last ? " FIN" : ""),
+                                -1);
                         $this->writer->send($f);
                     }
 
                     return;
                 }
 
-                $this->log("SPOP ACK stream-id={$frame->streamId}");
+                $this->log("ACK stream-id={$frame->streamId}", -1, array_reduce($results, fn($carry, $item) => array_merge($carry, $item), []))
+;
                 $this->writer->send(
                     new Frame(
                         FrameType::ACK,
@@ -354,7 +359,7 @@ class Connection {
             },
             function(\Throwable $reject) use ($frame) {
                 $message = $reject->getMessage();
-                $this->log("SPOP NOTIFY handler exception: $message", E_ERROR);
+                $this->logMessage("NOTIFY handler exception: $message", E_ERROR);
 
                 $this->writer->send(
                     new Frame(
@@ -378,6 +383,8 @@ class Connection {
             'message' => Arg::str($this->errorMessage)
         ];
 
+        $this->log("AGENT_DISCONNECT", -1, $args);
+
         $resp = new Frame(
             FrameType::AGENT_DISCONNECT,
             FrameType::FLAG_FIN, // fragmentation not permitted on DISCONNECT
@@ -393,19 +400,17 @@ class Connection {
 
     private function handleDisconnect(Frame $frame): void {
         $args = self::decodeArgs($frame->payload);
-        $this->log("SPOP DISCONNECT code=" . 
-            $args['status-code']->value . ", message=" .
-            $args['message']->value);
+        $this->log("DISCONNECT", 1, $args);
 
         $this->doDisconnect();
     }
 
     private function onError(\Exception $e) {
         $message = $e->getMessage();
-        $this->log("SPOP FATAL connection error: $message", E_ERROR);
+        $this->logMessage("FATAL connection error: $message", E_ERROR);
     }
 
     private function onClose(): void {
-        $this->log("SPOP closing connection");
+        $this->logMessage("closing connection");
     }
 }
